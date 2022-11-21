@@ -18,6 +18,7 @@ pub mod client_functionality;
 pub mod asset_handling;
 pub mod entities;
 pub mod physic_stuff;
+pub mod terrain_generation;
 
 pub const PORT: i32 = 5000;
 pub const AMOUNT_PLAYERS: usize = 4;
