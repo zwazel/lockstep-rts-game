@@ -10,7 +10,6 @@ use bevy::DefaultPlugins;
 use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 use bevy::window::PresentMode;
-use bevy_asset_loader::prelude::*;
 use bevy_mod_picking::{DebugCursorPickingPlugin, DefaultPickingPlugins, PickingCameraBundle};
 use bevy_rapier3d::prelude::*;
 use bevy_renet::{RenetClientPlugin, RenetServerPlugin, run_if_client_connected};
@@ -327,7 +326,7 @@ fn setup_scene(mut commands: Commands,
             children
                 .spawn(Collider::cuboid(floor_size / 2.0, 0.0, floor_size / 2.0))
                 .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_2))
-                .insert_bundle(TransformBundle {
+                .insert(TransformBundle {
                     ..Default::default()
                 });
         })

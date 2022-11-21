@@ -327,7 +327,7 @@ pub fn fixed_time_step_client(
     mut other_target_query: Query<(Entity, &OtherPlayerControlled), With<Target>>,
     mut players: Query<(Entity, &mut Player, &mut Transform), Without<MainCamera>>,
     mut bevy_commands: Commands,
-    mut client: ResMut<RenetClient>,
+    client: Res<RenetClient>,
     mut lobby: ResMut<ClientLobby>,
     most_recent_tick: Res<Tick>,
     most_recent_server_tick: Res<LocalServerTick>,
