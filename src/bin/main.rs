@@ -1,38 +1,28 @@
-use std::{env};
 use std::borrow::BorrowMut;
-
-use std::fmt::{Debug};
+use std::env;
+use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
-use std::io::{Write};
-
-
-use std::time::{Duration};
+use std::io::Write;
+use std::time::Duration;
 
 use bevy::app::{App, AppExit, CoreStage};
 use bevy::DefaultPlugins;
 use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
-
 use bevy::window::PresentMode;
-
 use bevy_asset_loader::prelude::*;
 use bevy_mod_picking::{DebugCursorPickingPlugin, DefaultPickingPlugins, PickingCameraBundle};
 use bevy_rapier3d::prelude::*;
 use bevy_renet::{RenetClientPlugin, RenetServerPlugin, run_if_client_connected};
-
 use iyes_loopless::prelude::*;
-
 use renet::{RenetClient, RenetError};
 
-
 use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PORT, SAVE_REPLAY, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
-use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_movement_of_other_players, move_camera, move_units, new_renet_client, place_move_target};
+use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_movement_of_other_players, move_camera, move_units, new_renet_client, place_move_target, update_tick};
 use lockstep_multiplayer_experimenting::commands::{CommandQueue, MyDateTime, ServerSyncedPlayerCommandsList, SyncedPlayerCommandsList};
 use lockstep_multiplayer_experimenting::entities::Target;
 use lockstep_multiplayer_experimenting::physic_stuff::PlaceableSurface;
 use lockstep_multiplayer_experimenting::server_functionality::{fixed_time_step_server, new_renet_server, server_update_system};
-
-
 
 fn resolve_type(my_type: &str) -> ClientType {
     let my_type = my_type.to_lowercase();
@@ -202,7 +192,16 @@ fn main() {
     let mut fixed_update_client = SystemStage::parallel();
     fixed_update_client.add_system_set(
         SystemSet::on_update(GameState::InGame)
-            .with_system(fixed_time_step_client)
+            .with_system(
+                fixed_time_step_client
+                    .label(MySystems::Syncing)
+                    .before(MySystems::UpdatingTick)
+            )
+            .with_system(
+                update_tick
+                    .label(MySystems::UpdatingTick)
+                    .after(MySystems::Syncing)
+            )
             .with_run_criteria(run_if_tick_in_sync_client)
     );
     app.add_stage_before(
@@ -272,6 +271,7 @@ enum MySystems {
     CommandCollection,
     Syncing,
     Movement,
+    UpdatingTick,
 }
 
 #[derive(Resource)]

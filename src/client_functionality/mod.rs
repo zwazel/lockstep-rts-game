@@ -1,37 +1,25 @@
-
-
 use std::net::UdpSocket;
-
 use std::time::SystemTime;
-
 
 use bevy::input::Input;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::math::{Vec2, Vec3};
 use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
-
 use bevy::render::camera::RenderTarget;
 use bevy::window::CursorGrabMode;
-use bevy_egui::egui::{lerp};
-use bevy_mod_picking::{PickableBundle};
-
+use bevy_egui::egui::lerp;
+use bevy_mod_picking::PickableBundle;
 use bevy_rapier3d::plugin::RapierContext;
 use bevy_rapier3d::prelude::{Collider, CollisionGroups, Group, InteractionGroups, QueryFilter};
 use nalgebra::ComplexField;
-
 use renet::{ClientAuthentication, NETCODE_USER_DATA_BYTES, RenetClient};
-
-
-
 
 use crate::*;
 use crate::ClientMessages::ClientUpdateTick;
 use crate::commands::{CommandQueue, SyncedPlayerCommandsList};
 use crate::entities::{MoveTarget, OtherPlayerControlled, PlayerControlled, Target, Unit};
-
 use crate::ServerMessages::UpdateTick;
-
 
 pub fn new_renet_client(username: &String, host: &str, port: i32) -> RenetClient {
     let server_addr = format!("{}:{}", host, port).parse().unwrap();
@@ -333,23 +321,19 @@ pub fn interpolate_movement_of_other_players(
 }
 
 pub fn fixed_time_step_client(
-    mut to_sync_commands: ResMut<CommandQueue>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut player_target_query: Query<Entity, (With<Target>, With<PlayerControlled>)>,
     mut other_target_query: Query<(Entity, &OtherPlayerControlled), With<Target>>,
-    camera_movement: Res<CameraMovement>,
-    mut q_camera: Query<&mut Transform, (With<MainCamera>, Without<Camera>)>,
     mut players: Query<(Entity, &mut Player, &mut Transform), Without<MainCamera>>,
     mut bevy_commands: Commands,
     mut client: ResMut<RenetClient>,
     mut lobby: ResMut<ClientLobby>,
-    mut most_recent_tick: ResMut<Tick>,
-    most_recent_server_tick: ResMut<LocalServerTick>,
-    synced_commands: ResMut<SyncedPlayerCommandsList>,
+    most_recent_tick: Res<Tick>,
+    most_recent_server_tick: Res<LocalServerTick>,
+    synced_commands: Res<SyncedPlayerCommandsList>,
 ) {
     let client_id = client.client_id();
-    let camera_transform = q_camera.single_mut();
 
     for (player_id, commands_list_of_player) in synced_commands.get_commands_for_tick(*most_recent_tick).0 {
         let is_player = player_id.0 == client_id;
@@ -475,6 +459,18 @@ pub fn fixed_time_step_client(
             println!("Unknown player sent a command!");
         }
     }
+}
+
+pub fn update_tick(
+    camera_movement: Res<CameraMovement>,
+    mut q_camera: Query<&mut Transform, (With<MainCamera>, Without<Camera>)>,
+    mut to_sync_commands: ResMut<CommandQueue>,
+    mut client: ResMut<RenetClient>,
+    mut most_recent_tick: ResMut<Tick>,
+    most_recent_server_tick: Res<LocalServerTick>,
+) {
+    let camera_transform = q_camera.single_mut();
+
     to_sync_commands.add_command(PlayerCommand::UpdatePlayerPosition(
         camera_movement.clone(),
         SerializableTransform::from_transform(camera_transform.clone()),
