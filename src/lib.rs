@@ -6,10 +6,9 @@ use std::fmt::*;
 use std::time::*;
 
 use bevy::math::Vec3;
-use bevy::prelude::{Component, Entity, Vec2, Resource};
+use bevy::prelude::{Component, Entity, Resource, Vec2};
 use renet::{ChannelConfig, NETCODE_KEY_BYTES, ReliableChannelConfig, RenetConnectionConfig};
 use serde::{Deserialize, Serialize};
-
 
 use crate::commands::{PlayerCommand, SyncedPlayerCommand};
 
@@ -30,6 +29,13 @@ pub const TICKRATE: u64 = 250;
 pub const SAVE_REPLAY: bool = true;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub struct PlayerSetTargetEvent {
+    target: Option<Entity>,
+    target_position: Option<Vec3>,
+    player: PlayerId,
+    player_controlled: bool,
+}
 
 #[derive(Resource)]
 pub struct CurrentServerTick(pub Tick);
@@ -267,7 +273,7 @@ impl Default for Player {
             id: PlayerId(0),
             username: Self::default_username(),
             entity: None,
-            movement: None
+            movement: None,
         }
     }
 }

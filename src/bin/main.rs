@@ -16,8 +16,8 @@ use bevy_renet::{RenetClientPlugin, RenetServerPlugin, run_if_client_connected};
 use iyes_loopless::prelude::*;
 use renet::{RenetClient, RenetError};
 
-use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PORT, SAVE_REPLAY, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
-use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_movement_of_other_players, move_camera, move_units, new_renet_client, place_move_target, update_tick};
+use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PlayerSetTargetEvent, PORT, SAVE_REPLAY, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
+use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_movement_of_other_players, move_camera, move_units, new_renet_client, place_move_target, set_target_for_units, update_tick};
 use lockstep_multiplayer_experimenting::commands::{CommandQueue, MyDateTime, ServerSyncedPlayerCommandsList, SyncedPlayerCommandsList};
 use lockstep_multiplayer_experimenting::entities::Target;
 use lockstep_multiplayer_experimenting::physic_stuff::PlaceableSurface;
@@ -148,6 +148,7 @@ fn main() {
     app.insert_resource(SyncedPlayerCommandsList::default());
     app.insert_resource(CommandQueue::default());
     app.insert_resource(SaveReplay(save_replay));
+    app.add_event::<PlayerSetTargetEvent>();
 
     // app.add_loading_state(
     //     LoadingState::new(GameState::Loading)
@@ -194,12 +195,26 @@ fn main() {
             .with_system(
                 fixed_time_step_client
                     .label(MySystems::Syncing)
+                    .label(MySystems::Updating)
+                    .before(MySystems::UpdatingTick)
+            )
+            .with_system(
+                set_target_for_units
+                    .label(MySystems::Updating)
+                    .after(MySystems::Syncing)
+                    .before(MySystems::UpdatingTick)
+            )
+            .with_system(
+                move_units
+                    .label(MySystems::Updating)
+                    .after(MySystems::Syncing)
                     .before(MySystems::UpdatingTick)
             )
             .with_system(
                 update_tick
                     .label(MySystems::UpdatingTick)
                     .after(MySystems::Syncing)
+                    .after(MySystems::Updating)
             )
             .with_run_criteria(run_if_tick_in_sync_client)
     );
@@ -221,12 +236,6 @@ fn main() {
                 client_update_system
                     .label(MySystems::Syncing)
                     .after(MySystems::CommandCollection)
-            )
-            .with_system(
-                fade_away_targets
-            )
-            .with_system(
-                move_units
             )
             .with_system(
                 interpolate_movement_of_other_players
@@ -271,6 +280,7 @@ enum MySystems {
     Syncing,
     Movement,
     UpdatingTick,
+    Updating,
 }
 
 #[derive(Resource)]

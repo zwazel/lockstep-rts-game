@@ -8,7 +8,7 @@ use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::window::CursorGrabMode;
-use bevy_egui::egui::lerp;
+use bevy_egui::egui::{Event, lerp};
 use bevy_mod_picking::PickableBundle;
 use bevy_rapier3d::plugin::RapierContext;
 use bevy_rapier3d::prelude::{Collider, CollisionGroups, Group, InteractionGroups, QueryFilter};
@@ -46,16 +46,52 @@ pub fn new_renet_client(username: &String, host: &str, port: i32) -> RenetClient
     RenetClient::new(current_time, socket, connection_config, authentication).unwrap()
 }
 
-pub fn move_units(mut unit_query: Query<(&MoveTarget, &mut Transform), With<Unit>>, time: Res<Time>) {
-    for (move_target, mut transform) in unit_query.iter_mut() {
-        let move_target: &MoveTarget = move_target;
+pub fn set_target_for_units(
+    mut target_event: EventReader<PlayerSetTargetEvent>,
+    mut player_units: Query<(Entity, Option<&MoveTarget>), (With<Unit>, With<PlayerControlled>)>,
+    mut other_player_units: Query<(Entity, Option<&MoveTarget>, &OtherPlayerControlled), With<Unit>>,
+    mut commands: Commands,
+) {
+    for event in target_event.iter() {
+        if event.player_controlled {
+            for (unit, move_target) in player_units.iter_mut() {
+                if let Some(_) = move_target {
+                    commands.entity(unit).remove::<MoveTarget>();
+                }
 
-        let mut direction = Vec2 { x: move_target.0, y: move_target.1 } - transform.translation.truncate();
+                commands.entity(unit).insert(MoveTarget(event.target_position.unwrap()));
+            }
+        } else {
+            for (unit, move_target, other_player_controlled) in other_player_units.iter_mut() {
+                if other_player_controlled.0.0 == event.player.0 {
+                    if let Some(_) = move_target {
+                        commands.entity(unit).remove::<MoveTarget>();
+                    }
+
+                    commands.entity(unit).insert(MoveTarget(event.target_position.unwrap()));
+                }
+            }
+        }
+    }
+}
+
+pub fn move_units(
+    mut units: Query<(Entity, &mut Transform, &MoveTarget), With<Unit>>,
+) {
+    for (unit, mut transform, move_target) in units.iter_mut() {
+        let target_position: Vec3 = move_target.0;
+        let current_position: Vec3 = transform.translation;
+
+        let direction = target_position - current_position;
         let distance = direction.length();
-        if distance > 0.1 {
-            direction = direction.normalize();
-            transform.translation.x += direction.x * 0.5 * time.delta_seconds();
-            transform.translation.y += direction.y * 0.5 * time.delta_seconds();
+        let direction = direction.normalize();
+
+        let speed = 0.1;
+
+        if distance > speed {
+            transform.translation += direction * speed;
+        } else {
+            transform.translation = target_position;
         }
     }
 }
@@ -332,6 +368,7 @@ pub fn fixed_time_step_client(
     most_recent_tick: Res<Tick>,
     most_recent_server_tick: Res<LocalServerTick>,
     synced_commands: Res<SyncedPlayerCommandsList>,
+    mut event_set_target: EventWriter<PlayerSetTargetEvent>,
 ) {
     let client_id = client.client_id();
 
@@ -396,6 +433,13 @@ pub fn fixed_time_step_client(
                         } else {
                             bevy_commands.entity(target_entity).insert(OtherPlayerControlled(player_id));
                         }
+
+                        event_set_target.send(PlayerSetTargetEvent {
+                            target: Some(target_entity),
+                            target_position: Some(vec3),
+                            player: player_id,
+                            player_controlled: is_player,
+                        });
                     }
                     PlayerCommand::SpawnUnit(vec3) => {
                         let unit_entity = bevy_commands

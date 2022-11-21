@@ -1,5 +1,5 @@
 
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Vec3};
 
 use crate::PlayerId;
 
@@ -7,7 +7,7 @@ use crate::PlayerId;
 pub struct Target;
 
 #[derive(Component)]
-pub struct MoveTarget(pub f32, pub f32);
+pub struct MoveTarget(pub Vec3);
 
 #[derive(Component)]
 pub struct Unit;
