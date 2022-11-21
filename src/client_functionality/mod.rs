@@ -76,10 +76,11 @@ pub fn set_target_for_units(
 }
 
 pub fn move_units(
-    mut units: Query<(Entity, &mut Transform, &MoveTarget), With<Unit>>,
+    mut units: Query<(&mut Transform, &MoveTarget), With<Unit>>,
 ) {
-    for (unit, mut transform, move_target) in units.iter_mut() {
-        let target_position: Vec3 = move_target.0;
+    for (mut transform, move_target) in units.iter_mut() {
+        let mut target_position: Vec3 = move_target.0;
+        target_position.y += 0.5;
         let current_position: Vec3 = transform.translation;
 
         let direction = target_position - current_position;
