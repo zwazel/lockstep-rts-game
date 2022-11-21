@@ -304,20 +304,7 @@ fn setup_camera(
         .insert(MainCamera)
         .id();
 
-    let light = commands
-        .spawn(SpotLightBundle {
-            spot_light: SpotLight {
-                range: 500.0,
-                intensity: 1000.0,
-                shadows_enabled: true,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(CameraLight)
-        .id();
-
-    commands.entity(spatial_bundle).push_children(&[camera, light]);
+    commands.entity(spatial_bundle).push_children(&[camera]);
 }
 
 fn setup_scene(mut commands: Commands,

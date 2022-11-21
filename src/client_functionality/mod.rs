@@ -575,16 +575,6 @@ pub fn client_update_system(
                         })
                         .with_children(|children| {
                             children
-                                .spawn(SpotLightBundle {
-                                    spot_light: SpotLight {
-                                        range: 500.0,
-                                        intensity: 1000.0,
-                                        shadows_enabled: true,
-                                        ..Default::default()
-                                    },
-                                    ..Default::default()
-                                });
-                            children
                                 .spawn(PbrBundle {
                                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
                                     material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
