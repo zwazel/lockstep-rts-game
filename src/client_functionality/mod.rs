@@ -112,7 +112,7 @@ pub fn create_new_units(
 
         for hit in hits {
             let command = PlayerCommand::SpawnUnit(hit.1);
-            commands_to_sync.add_command(command);
+            commands_to_sync.add_command(command, None, None);
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn place_move_target(
 
         for hit in hits {
             let command = PlayerCommand::SetTargetPosition(hit.1);
-            commands_to_sync.add_command(command);
+            commands_to_sync.add_command(command, None, None);
         }
     }
 }
@@ -513,13 +513,14 @@ pub fn update_tick(
     mut client: ResMut<RenetClient>,
     mut most_recent_tick: ResMut<Tick>,
     most_recent_server_tick: Res<LocalServerTick>,
+    synced_commands: Res<SyncedPlayerCommandsList>,
 ) {
     let camera_transform = q_camera.single_mut();
 
     to_sync_commands.add_command(PlayerCommand::UpdatePlayerPosition(
         camera_movement.clone(),
         SerializableTransform::from_transform(camera_transform.clone()),
-    ));
+    ), Some(PlayerId(client.client_id())), Some(synced_commands));
 
     most_recent_tick.0 = most_recent_server_tick.0.0;
 
