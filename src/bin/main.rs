@@ -22,6 +22,7 @@ use lockstep_multiplayer_experimenting::commands::{CommandQueue, MyDateTime, Ser
 use lockstep_multiplayer_experimenting::entities::Target;
 use lockstep_multiplayer_experimenting::physic_stuff::PlaceableSurface;
 use lockstep_multiplayer_experimenting::server_functionality::{fixed_time_step_server, new_renet_server, server_update_system};
+use lockstep_multiplayer_experimenting::terrain_generation::setup_mesh;
 
 fn resolve_type(my_type: &str) -> ClientType {
     let my_type = my_type.to_lowercase();
@@ -140,6 +141,7 @@ fn main() {
     app.add_system(panic_on_error_system);
     app.add_system_to_stage(CoreStage::Last, disconnect);
 
+    app.insert_resource(Msaa { samples: 4 });
     /*
         Defines the tick the server is on currently
         The client isn't yet on this tick, it's the target tick.
@@ -158,7 +160,7 @@ fn main() {
     // );
     app.add_state(GameState::InGame);
     app.add_startup_system(setup_camera);
-    app.add_startup_system(setup_scene);
+    app.add_startup_system(setup_mesh);
 
     match my_type {
         ClientType::Server => {
@@ -305,29 +307,6 @@ fn setup_camera(
         .id();
 
     commands.entity(spatial_bundle).push_children(&[camera]);
-}
-
-fn setup_scene(mut commands: Commands,
-               mut meshes: ResMut<Assets<Mesh>>,
-               mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    // plane
-    let floor_size = 20.0;
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: floor_size })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    })
-        .with_children(|children| {
-            children
-                .spawn(Collider::cuboid(floor_size / 2.0, 0.0, floor_size / 2.0))
-                .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_2))
-                .insert(TransformBundle {
-                    ..Default::default()
-                });
-        })
-        .insert(PlaceableSurface);
 }
 
 fn fade_away_targets(
