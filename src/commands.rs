@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap};
 use std::fmt::{Display, Formatter};
 
-use bevy::prelude::Resource;
+use bevy::prelude::{Res, Resource};
 use bevy::math::Vec3;
 use bevy::prelude::{Deref, DerefMut};
 
@@ -70,7 +70,11 @@ impl CommandQueue {
         self.0.clear();
     }
 
-    pub fn add_command(&mut self, command: PlayerCommand) {
+    pub fn add_command(
+        &mut self, command: PlayerCommand,
+        player_id: Option<PlayerId>,
+        synced_commands: Option<Res<SyncedPlayerCommandsList>>,
+    ) {
         if !self.contains(&command) {
             match command {
                 PlayerCommand::SetTargetPosition(_) => {
@@ -79,6 +83,63 @@ impl CommandQueue {
 
                     // add the new command
                     self.0.push(command);
+                }
+                PlayerCommand::UpdatePlayerPosition(movement, transform) => {
+                    let mut all_needed_here = true;
+
+                    if let Some(synced_commands) = synced_commands {
+                        if let Some(player_id) = player_id {
+                            let mut add_command = true;
+
+                            // reverse iter through synced commands
+                            let mut count = 0;
+                            'break_for_command_finding: for (_, commands) in synced_commands.0.iter().rev() {
+                                count += 1;
+
+                                if count > 50 {
+                                    break 'break_for_command_finding;
+                                }
+
+                                let last_commands = &commands.0;
+
+                                'break_for_player_find: for (id, commands) in last_commands.0.iter() {
+                                    if *id == player_id {
+                                        // find a movement command
+                                        for command in commands.iter() {
+                                            if let PlayerCommand::UpdatePlayerPosition(last_movement, last_transform) = command {
+                                                // if the movement is the same, we don't need to add the command
+                                                if last_movement == &movement {
+                                                    add_command = false;
+                                                    break 'break_for_command_finding;
+                                                }
+
+                                                // if the transform is the same, we don't need to add the command
+                                                if last_transform == &transform {
+                                                    add_command = false;
+                                                    break 'break_for_command_finding;
+                                                }
+                                            }
+                                        }
+
+                                        break 'break_for_player_find;
+                                    }
+                                }
+                            }
+
+                            if add_command {
+                                println!("Adding command");
+                                self.0.push(command);
+                            }
+                        } else {
+                            all_needed_here = false;
+                        }
+                    } else {
+                        all_needed_here = false;
+                    }
+
+                    if !all_needed_here {
+                        panic!("Not all needed data was provided to add UpdatePlayerPosition command");
+                    }
                 }
                 _ => self.0.push(command)
             }
@@ -118,7 +179,7 @@ impl Default for PlayerCommandsList {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deref, DerefMut)]
 pub struct MyDateTime(pub DateTime<Local>);
 
 impl MyDateTime {
@@ -156,7 +217,7 @@ impl<'de> Deserialize<'de> for MyDateTime {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Resource)]
+#[derive(Serialize, Deserialize, Debug, Resource, Deref, DerefMut)]
 pub struct SyncedPlayerCommandsList(pub BTreeMap<Tick, SyncedPlayerCommand>);
 
 impl SyncedPlayerCommandsList {
@@ -193,7 +254,7 @@ impl Default for ServerSyncedPlayerCommandsList {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Debug, Resource, Clone)]
 pub struct SyncedPlayerCommand(pub PlayerCommandsList, pub MyDateTime);
 
 impl SyncedPlayerCommand {

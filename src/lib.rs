@@ -1,12 +1,10 @@
-extern crate core;
-
 use std::cmp::*;
 use std::collections::*;
 use std::fmt::*;
 use std::time::*;
 
 use bevy::math::Vec3;
-use bevy::prelude::{Component, Entity, Resource, Vec2};
+use bevy::prelude::{Component, Deref, DerefMut, Entity, Resource, Vec2};
 use renet::{ChannelConfig, NETCODE_KEY_BYTES, ReliableChannelConfig, RenetConnectionConfig};
 use serde::{Deserialize, Serialize};
 
@@ -200,7 +198,7 @@ pub enum GameState {
     InGame,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Component, PartialOrd, Resource)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Component, PartialOrd, Resource, Deref, DerefMut)]
 pub struct Tick(pub i64);
 
 impl Ord for Tick {
@@ -231,7 +229,7 @@ impl Tick {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Component)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Component, Deref, DerefMut)]
 pub struct PlayerId(pub u64);
 
 impl Display for PlayerId {
