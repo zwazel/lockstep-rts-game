@@ -127,7 +127,6 @@ impl CommandQueue {
                             }
 
                             if add_command {
-                                println!("Adding command");
                                 self.0.push(command);
                             }
                         } else {
