@@ -15,13 +15,13 @@ pub fn setup_mesh(
 ) {
     let width = 10;
     let height = 10;
-    let depth = 10.0;
-    let rough = 1.0;
+    let depth = 50.0; // q: what is this? a: depth of the terrain, how high the terrain is, how far the terrain goes up
+    let rough = 1.0; // q: what is this? a: the roughness of the terrain, 0.0 is flat, 1.0 is very rough. Default: 1.0.
     let mut runner = Runner::new();
     runner.set_width(width);
     runner.set_height(height);
-    runner.set_depth(depth); // q: what is this? a: depth of the terrain, how high the terrain is, how far the terrain goes up
-    runner.set_rough(rough); // q: what is this? a: the roughness of the terrain, 0.0 is flat, 1.0 is very rough. Default: 1.0.
+    runner.set_depth(depth);
+    runner.set_rough(rough);
 
     let output = runner.ds();
 
@@ -62,7 +62,7 @@ pub fn setup_mesh(
     mesh.set_indices(Some(Indices::U32(indices)));
 
     let material_handle = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.8, 0.8, 0.8),
+        base_color: Color::GREEN,
         ..Default::default()
     });
 
