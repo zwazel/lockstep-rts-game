@@ -112,7 +112,7 @@ pub fn create_new_units(
 
         for hit in hits {
             let command = PlayerCommand::SpawnUnit(hit.1);
-            commands_to_sync.add_command(command, None, None);
+            commands_to_sync.add_command(command);
         }
     }
 }
@@ -132,7 +132,7 @@ pub fn place_move_target(
 
         for hit in hits {
             let command = PlayerCommand::SetTargetPosition(hit.1);
-            commands_to_sync.add_command(command, None, None);
+            commands_to_sync.add_command(command);
         }
     }
 }
@@ -483,21 +483,6 @@ pub fn fixed_time_step_client(
 
                         bevy_commands.entity(unit_entity).push_children(&[collider]);
                     }
-                    PlayerCommand::UpdatePlayerPosition(movement, transform) => {
-                        if let Some(_player_info) = lobby.0.get_mut(&player_id) {
-                            for (_, mut player, mut entity_transform) in players.iter_mut() {
-                                if player.id.0 == player_id.0 {
-                                    entity_transform.translation = transform.translation;
-                                    entity_transform.rotation = transform.rotation;
-                                    entity_transform.scale = transform.scale;
-
-                                    player.movement = Some(movement);
-
-                                    break;
-                                }
-                            }
-                        }
-                    }
                 }
             }
         } else {
@@ -507,21 +492,11 @@ pub fn fixed_time_step_client(
 }
 
 pub fn update_tick(
-    camera_movement: Res<CameraMovement>,
-    mut q_camera: Query<&mut Transform, (With<MainCamera>, Without<Camera>)>,
     mut to_sync_commands: ResMut<CommandQueue>,
     mut client: ResMut<RenetClient>,
     mut most_recent_tick: ResMut<Tick>,
     most_recent_server_tick: Res<LocalServerTick>,
-    synced_commands: Res<SyncedPlayerCommandsList>,
 ) {
-    let camera_transform = q_camera.single_mut();
-
-    to_sync_commands.add_command(PlayerCommand::UpdatePlayerPosition(
-        camera_movement.clone(),
-        SerializableTransform::from_transform(camera_transform.clone()),
-    ), Some(PlayerId(client.client_id())), Some(synced_commands));
-
     most_recent_tick.0 = most_recent_server_tick.0.0;
 
     let message = bincode::serialize(&ClientUpdateTick {
@@ -568,29 +543,6 @@ pub fn client_update_system(
                     println!("You're now connected to the server!")
                 } else {
                     println!("Player {} connected to the server.", player.username);
-
-                    bevy_commands.entity(client_entity)
-                        .insert(OtherPlayerControlled(player.id))
-                        .insert(SpatialBundle {
-                            transform: Transform::from_xyz(0.0, 2.5, 5.0),
-                            ..default()
-                        })
-                        .with_children(|children| {
-                            children
-                                .spawn(PbrBundle {
-                                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.1 })),
-                                    material: materials.add(Color::rgb(1.0, 0.0, 0.0).into()),
-                                    transform: Transform::from_xyz(0.0, 0.0, -1.5),
-                                    ..Default::default()
-                                })
-                                .insert(NotShadowCaster);
-                            children
-                                .spawn(PbrBundle {
-                                    mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                                    material: materials.add(Color::YELLOW_GREEN.into()),
-                                    ..default()
-                                });
-                        });
                 }
 
                 let player_info = PlayerInfo {
