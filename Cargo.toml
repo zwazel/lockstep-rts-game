@@ -10,10 +10,6 @@ edition = "2021"
 name = "main"
 path = "src/bin/main.rs"
 
-[[bin]]
-name = "test_height"
-path = "src/bin/test_height.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
