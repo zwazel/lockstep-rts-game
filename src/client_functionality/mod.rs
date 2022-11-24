@@ -4,11 +4,10 @@ use std::time::SystemTime;
 use bevy::input::Input;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::math::{Vec2, Vec3};
-use bevy::pbr::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::window::CursorGrabMode;
-use bevy_egui::egui::{Event, lerp};
+use bevy_egui::egui::lerp;
 use bevy_mod_picking::PickableBundle;
 use bevy_rapier3d::plugin::RapierContext;
 use bevy_rapier3d::prelude::{Collider, CollisionGroups, Group, InteractionGroups, QueryFilter};
@@ -362,10 +361,9 @@ pub fn fixed_time_step_client(
     mut meshes: ResMut<Assets<Mesh>>,
     mut player_target_query: Query<Entity, (With<Target>, With<PlayerControlled>)>,
     mut other_target_query: Query<(Entity, &OtherPlayerControlled), With<Target>>,
-    mut players: Query<(Entity, &mut Player, &mut Transform), Without<MainCamera>>,
     mut bevy_commands: Commands,
     client: Res<RenetClient>,
-    mut lobby: ResMut<ClientLobby>,
+    lobby: Res<ClientLobby>,
     most_recent_tick: Res<Tick>,
     most_recent_server_tick: Res<LocalServerTick>,
     synced_commands: Res<SyncedPlayerCommandsList>,
@@ -516,8 +514,6 @@ pub fn client_update_system(
     mut most_recent_tick: ResMut<Tick>,
     mut most_recent_server_tick: ResMut<LocalServerTick>,
     mut synced_commands: ResMut<SyncedPlayerCommandsList>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let client_id = client.client_id();
 
