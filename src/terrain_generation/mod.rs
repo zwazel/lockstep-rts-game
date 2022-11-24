@@ -13,10 +13,10 @@ pub fn setup_mesh(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let width = 10;
-    let height = 10;
-    let depth = 50.0; // q: what is this? a: depth of the terrain, how high the terrain is, how far the terrain goes up
-    let rough = 1.0; // q: what is this? a: the roughness of the terrain, 0.0 is flat, 1.0 is very rough. Default: 1.0.
+    let width = 100;
+    let height = 100;
+    let depth = 10.0; // q: what is this? a: depth of the terrain, how high the terrain is, how far the terrain goes up
+    let rough = 0.5; // q: what is this? a: the roughness of the terrain, 0.0 is flat, 1.0 is very rough. Default: 1.0.
     let mut runner = Runner::new();
     runner.set_width(width);
     runner.set_height(height);
@@ -28,6 +28,7 @@ pub fn setup_mesh(
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
+    // q: what does the following loop do? a: it creates the vertices for the terrain mesh
     for x in 0..width {
         for y in 0..height {
             let position = Vec3::new(x as f32, y as f32, output.data[x][y]);
@@ -37,6 +38,8 @@ pub fn setup_mesh(
         }
     }
 
+    // q: what does the following loop do? a: it creates the indices
+    // q: what is the purpose of the indices? a: the indices are used to create the triangles that make up the terrain mesh (the triangles are the faces of the terrain)
     for x in 0..width - 1 {
         for y in 0..height - 1 {
             let a = x + y * width;
@@ -66,10 +69,14 @@ pub fn setup_mesh(
         ..Default::default()
     });
 
+    // 90 degree rotation around the x axis
+    let transform = Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::FRAC_PI_2));
+
     commands
         .spawn(PbrBundle {
             mesh: meshes.add(mesh),
             material: material_handle,
+            transform,
             ..Default::default()
         });
 }
