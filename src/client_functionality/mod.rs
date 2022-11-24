@@ -468,18 +468,22 @@ pub fn fixed_time_step_client(
                                     .insert(CollisionGroups::new(Group::GROUP_1, Group::GROUP_1))
                                     .insert(TransformBundle {
                                         ..Default::default()
-                                    });
+                                    })
+                                    .insert(Name::new("Unit Collider"));
                             })
+                            .insert(Name::new("Unit Mesh"))
                             .id();
 
                         if is_player {
                             bevy_commands.entity(unit_entity)
-                                .insert(PlayerControlled);
+                                .insert(PlayerControlled)
+                                .insert(Name::new("Unit Spatial (Player)"));
                             bevy_commands.entity(collider)
                                 .insert(PickableBundle::default());
                         } else {
                             bevy_commands.entity(unit_entity)
-                                .insert(OtherPlayerControlled(player_id));
+                                .insert(OtherPlayerControlled(player_id))
+                                .insert(Name::new("Unit Spatial (Other Player)"));
                         }
 
                         bevy_commands.entity(unit_entity).push_children(&[collider]);
@@ -535,6 +539,7 @@ pub fn client_update_system(
                             movement: player.movement,
                         },
                     ))
+                    .insert(Name::new(format!("Player {}", player.username)))
                     .id();
 
                 if is_player {

@@ -332,9 +332,11 @@ fn setup_scene(mut commands: Commands,
                 .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_2))
                 .insert(TransformBundle {
                     ..Default::default()
-                });
+                })
+                .insert(Name::new("Floor Collider"));
         })
-        .insert(PlaceableSurface);
+        .insert(PlaceableSurface)
+        .insert(Name::new("Floor"));
 }
 
 fn fade_away_targets(
