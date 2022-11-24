@@ -111,7 +111,7 @@ pub fn server_update_system(
                         id: PlayerId(*id),
                         username: username.clone(),
                         entity: Some(player_entity),
-                        movement: None
+                        movement: None,
                     },
                     entity: player_entity,
                 })

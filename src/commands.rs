@@ -1,14 +1,11 @@
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
-use bevy::prelude::{Res, Resource};
 use bevy::math::Vec3;
+use bevy::prelude::{Res, Resource};
 use bevy::prelude::{Deref, DerefMut};
-
 use chrono::{DateTime, Local};
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 
 use crate::{CameraMovement, PlayerId, Tick};
 use crate::client_functionality::SerializableTransform;
@@ -18,7 +15,6 @@ pub enum PlayerCommand {
     Test(String),
     SetTargetPosition(Vec3),
     SpawnUnit(Vec3),
-    UpdatePlayerPosition(CameraMovement, SerializableTransform),
 }
 
 impl PlayerCommand {
@@ -38,7 +34,6 @@ impl Display for PlayerCommand {
             Self::Test(s) => write!(f, "Test({})", s),
             Self::SetTargetPosition(vec) => write!(f, "SetTargetPosition({}, {}, {})", vec.x, vec.y, vec.z),
             Self::SpawnUnit(vec) => write!(f, "SpawnUnit({}, {}, {})", vec.x, vec.y, vec.z),
-            Self::UpdatePlayerPosition(movement, transform) => write!(f, "UpdatePlayerPosition({:?}, {:?})", movement, transform),
         }
     }
 }
@@ -72,8 +67,6 @@ impl CommandQueue {
 
     pub fn add_command(
         &mut self, command: PlayerCommand,
-        player_id: Option<PlayerId>,
-        synced_commands: Option<Res<SyncedPlayerCommandsList>>,
     ) {
         if !self.contains(&command) {
             match command {
@@ -83,62 +76,6 @@ impl CommandQueue {
 
                     // add the new command
                     self.0.push(command);
-                }
-                PlayerCommand::UpdatePlayerPosition(movement, transform) => {
-                    let mut all_needed_here = true;
-
-                    if let Some(synced_commands) = synced_commands {
-                        if let Some(player_id) = player_id {
-                            let mut add_command = true;
-
-                            // reverse iter through synced commands
-                            let mut count = 0;
-                            'break_for_command_finding: for (_, commands) in synced_commands.0.iter().rev() {
-                                count += 1;
-
-                                if count > 50 {
-                                    break 'break_for_command_finding;
-                                }
-
-                                let last_commands = &commands.0;
-
-                                'break_for_player_find: for (id, commands) in last_commands.0.iter() {
-                                    if *id == player_id {
-                                        // find a movement command
-                                        for command in commands.iter() {
-                                            if let PlayerCommand::UpdatePlayerPosition(last_movement, last_transform) = command {
-                                                // if the movement is the same, we don't need to add the command
-                                                if last_movement == &movement {
-                                                    add_command = false;
-                                                    break 'break_for_command_finding;
-                                                }
-
-                                                // if the transform is the same, we don't need to add the command
-                                                if last_transform == &transform {
-                                                    add_command = false;
-                                                    break 'break_for_command_finding;
-                                                }
-                                            }
-                                        }
-
-                                        break 'break_for_player_find;
-                                    }
-                                }
-                            }
-
-                            if add_command {
-                                self.0.push(command);
-                            }
-                        } else {
-                            all_needed_here = false;
-                        }
-                    } else {
-                        all_needed_here = false;
-                    }
-
-                    if !all_needed_here {
-                        panic!("Not all needed data was provided to add UpdatePlayerPosition command");
-                    }
                 }
                 _ => self.0.push(command)
             }
