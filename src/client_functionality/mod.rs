@@ -387,12 +387,12 @@ pub fn fixed_time_step_client(
                     PlayerCommand::SetTargetPosition(vec3) => {
                         if is_player {
                             for player_target in player_target_query.iter_mut() {
-                                bevy_commands.entity(player_target).despawn_descendants();
+                                bevy_commands.entity(player_target).despawn_recursive();
                             }
                         } else {
                             for (other_target, other_player_controlled) in other_target_query.iter_mut() {
                                 if other_player_controlled.0 == player_id {
-                                    bevy_commands.entity(other_target).despawn_descendants();
+                                    bevy_commands.entity(other_target).despawn_recursive();
                                 }
                             }
                         }
@@ -403,6 +403,7 @@ pub fn fixed_time_step_client(
                                 ..Default::default()
                             })
                             .insert(Target)
+                            .insert(Name::new("Target Spatial"))
                             .id();
 
                         let collider = bevy_commands
@@ -421,8 +422,10 @@ pub fn fixed_time_step_client(
                                     .insert(CollisionGroups::new(Group::GROUP_3, Group::GROUP_3))
                                     .insert(TransformBundle {
                                         ..Default::default()
-                                    });
+                                    })
+                                    .insert(Name::new("Target Collider"));
                             })
+                            .insert(Name::new("Target Mesh"))
                             .id();
 
                         bevy_commands.entity(target_entity).push_children(&[collider]);
@@ -565,7 +568,7 @@ pub fn client_update_system(
                                 ..
                             }) = lobby.0.remove(&id)
                 {
-                    bevy_commands.entity(client_entity).despawn_descendants();
+                    bevy_commands.entity(client_entity).despawn_recursive();
                     network_mapping.0.remove(&server_entity);
                 }
 

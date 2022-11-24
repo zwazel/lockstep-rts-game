@@ -10,6 +10,7 @@ use bevy::DefaultPlugins;
 use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
 use bevy::window::PresentMode;
+use bevy_inspector_egui::WorldInspectorPlugin;
 use bevy_mod_picking::{DebugCursorPickingPlugin, DefaultPickingPlugins, PickingCameraBundle};
 use bevy_rapier3d::prelude::*;
 use bevy_renet::{RenetClientPlugin, RenetServerPlugin, run_if_client_connected};
@@ -137,6 +138,7 @@ fn main() {
     // app.add_plugin(DebugEventsPickingPlugin); // <- Adds debug event logging.
     app.add_plugin(RapierPhysicsPlugin::<NoUserData>::default());
     app.add_plugin(RapierDebugRenderPlugin::default());
+    app.add_plugin(WorldInspectorPlugin::new());
 
     app.add_system(panic_on_error_system);
     app.add_system_to_stage(CoreStage::Last, disconnect);
@@ -160,7 +162,8 @@ fn main() {
     // );
     app.add_state(GameState::InGame);
     app.add_startup_system(setup_camera);
-    app.add_startup_system(setup_mesh);
+    app.add_startup_system(setup_scene);
+    // app.add_startup_system(setup_mesh);
 
     match my_type {
         ClientType::Server => {
@@ -297,6 +300,7 @@ fn setup_camera(
             ..default()
         })
         .insert(MainCamera)
+        .insert(Name::new("Main Camera Spatial"))
         .id();
 
     // camera
@@ -304,9 +308,33 @@ fn setup_camera(
         .spawn(Camera3dBundle::default())
         .insert(PickingCameraBundle::default())
         .insert(MainCamera)
+        .insert(Name::new("Main Camera"))
         .id();
 
     commands.entity(spatial_bundle).push_children(&[camera]);
+}
+
+fn setup_scene(mut commands: Commands,
+               mut meshes: ResMut<Assets<Mesh>>,
+               mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    // plane
+    let floor_size = 20.0;
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: floor_size })),
+        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+        transform: Transform::from_xyz(0.0, 0.0, 0.0),
+        ..default()
+    })
+        .with_children(|children| {
+            children
+                .spawn(Collider::cuboid(floor_size / 2.0, 0.0, floor_size / 2.0))
+                .insert(CollisionGroups::new(Group::GROUP_2, Group::GROUP_2))
+                .insert(TransformBundle {
+                    ..Default::default()
+                });
+        })
+        .insert(PlaceableSurface);
 }
 
 fn fade_away_targets(
