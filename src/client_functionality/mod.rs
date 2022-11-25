@@ -75,43 +75,79 @@ pub fn set_target_for_units(
 }
 
 pub fn move_units(
-    mut units: Query<(&mut Transform, &MoveTarget, &UnitMoveSpeed), With<Unit>>,
+    mut units: Query<(&mut Transform, &MoveTarget, &mut UnitMoveSpeed), With<Unit>>,
+    tickrate: Res<CurrentTickrate>,
 ) {
-    for (mut transform, move_target, move_speed) in units.iter_mut() {
+    for (mut transform, move_target, mut move_speed) in units.iter_mut() {
         let mut target_position: Vec3 = move_target.0;
         target_position.y += 0.5;
         let current_position: Vec3 = transform.translation;
 
-        let direction = target_position - current_position;
-        let distance = direction.length();
-        let direction = direction.normalize();
+        let direction = (target_position - current_position).normalize();
+        let distance = Vec3::distance(target_position, current_position);
 
-        if distance > move_speed.0 {
-            transform.translation += direction * move_speed.0;
+        let speed = move_speed.get_tickrate_speed(tickrate.0);
+
+        if distance > speed {
+            move_speed.last_synchronised_transform.translation += direction * speed;
         } else {
-            transform.translation = target_position;
+            move_speed.last_synchronised_transform.translation = target_position;
         }
+
+        move_speed.last_ticks_with_time.clear();
+        transform.translation = move_speed.last_synchronised_transform.translation;
     }
 }
 
 pub fn interpolate_unit_movement(
-    mut units: Query<(&mut Transform, &MoveTarget, &UnitMoveSpeed), With<Unit>>,
+    mut units: Query<(&mut Transform, &MoveTarget, &mut UnitMoveSpeed), With<Unit>>,
     time: Res<Time>,
+    tickrate: Res<CurrentTickrate>,
 ) {
-    for (mut transform, move_target, move_speed) in units.iter_mut() {
+    for (mut transform, move_target, mut move_speed) in units.iter_mut() {
         let mut target_position: Vec3 = move_target.0;
         target_position.y += 0.5;
         let current_position: Vec3 = transform.translation;
-        let where_we_are_next_tick = current_position + (target_position - current_position) * time.delta_seconds();
 
-        let direction = target_position - current_position;
-        let distance = direction.length();
-        let direction = direction.normalize();
+        if current_position != target_position {
+            let mut last_sync_position: Vec3 = move_speed.last_synchronised_transform.translation;
+            let direction = (target_position - last_sync_position).normalize();
 
-        if distance > move_speed.0 {
-            transform.translation = where_we_are_next_tick;
-        } else {
-            transform.translation = target_position;
+            let speed: f32 = move_speed.get_tickrate_speed(tickrate.0);
+
+            let next_tick_position = last_sync_position + direction * speed;
+
+            if current_position != next_tick_position {
+                let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
+                // get the average time between the ticks
+                let mut average_time_between_frames = all_frames.iter().sum::<f32>() / all_frames.len() as f32;
+                if all_frames.len() <= 0 {
+                    average_time_between_frames = time.delta_seconds();
+                }
+
+                // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
+                let frames_to_interpolate = tickrate.0 as f32 / 1000.0 / average_time_between_frames;
+
+                // calculate how much of the distance i have to travel from current position to next tick position in total
+                let distance_to_travel = Vec3::distance(next_tick_position, current_position);
+
+                // calculate how much of the distance i have to travel this frame
+                let distance_to_travel_this_frame = distance_to_travel / frames_to_interpolate;
+
+                // the closer we are at the frames to interpolate, the more we need to move
+                let difference = ((frames_to_interpolate - all_frames.len() as f32) * distance_to_travel_this_frame / frames_to_interpolate).abs() + (speed * distance_to_travel_this_frame);
+                let distance_to_travel_this_frame = distance_to_travel_this_frame + (difference);
+
+                // travel that distance
+                transform.translation += direction * distance_to_travel_this_frame;
+
+                // if we are close enough to the next tick position, set the current position to the next tick position
+                if Vec3::distance(transform.translation, next_tick_position) < speed * time.delta_seconds() {
+                    transform.translation = next_tick_position;
+                }
+
+                move_speed.last_ticks_with_time.push(time.delta_seconds());
+            }
         }
     }
 }
@@ -371,7 +407,6 @@ pub fn fixed_time_step_client(
     most_recent_server_tick: Res<LocalServerTick>,
     synced_commands: Res<SyncedPlayerCommandsList>,
     mut event_set_target: EventWriter<PlayerSetTargetEvent>,
-    tickrate: Res<CurrentTickrate>,
 ) {
     let client_id = client.client_id();
 
@@ -457,7 +492,11 @@ pub fn fixed_time_step_client(
                             .insert(RangedUnit {
                                 shooting_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
                             })
-                            .insert(UnitMoveSpeed(0.1 * (tickrate.0 as f32 * 0.1)))
+                            .insert(UnitMoveSpeed {
+                                speed: 0.1,
+                                last_synchronised_transform: Transform::from_xyz(vec3.x, vec3.y + 0.5, vec3.z),
+                                last_ticks_with_time: Vec::new(),
+                            })
                             .id();
 
                         let collider = bevy_commands
