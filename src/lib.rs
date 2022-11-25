@@ -29,6 +29,15 @@ pub const SAVE_REPLAY: bool = true;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[derive(Resource)]
+pub struct AmountPlayers(pub usize);
+
+#[derive(Resource)]
+pub struct CurrentTickrate(pub u64);
+
+#[derive(Resource)]
+pub struct SaveReplay(pub bool);
+
 pub struct PlayerSetTargetEvent {
     target: Option<Entity>,
     target_position: Option<Vec3>,

@@ -17,7 +17,7 @@ use renet::{ClientAuthentication, NETCODE_USER_DATA_BYTES, RenetClient};
 use crate::*;
 use crate::ClientMessages::ClientUpdateTick;
 use crate::commands::{CommandQueue, SyncedPlayerCommandsList};
-use crate::entities::{MoveTarget, OtherPlayerControlled, PlayerControlled, Target, Unit};
+use crate::entities::{MoveTarget, OtherPlayerControlled, PlayerControlled, RangedUnit, Target, Unit, UnitMoveSpeed};
 use crate::ServerMessages::UpdateTick;
 
 pub fn new_renet_client(username: &String, host: &str, port: i32) -> RenetClient {
@@ -75,9 +75,9 @@ pub fn set_target_for_units(
 }
 
 pub fn move_units(
-    mut units: Query<(&mut Transform, &MoveTarget), With<Unit>>,
+    mut units: Query<(&mut Transform, &MoveTarget, &UnitMoveSpeed), With<Unit>>,
 ) {
-    for (mut transform, move_target) in units.iter_mut() {
+    for (mut transform, move_target, move_speed) in units.iter_mut() {
         let mut target_position: Vec3 = move_target.0;
         target_position.y += 0.5;
         let current_position: Vec3 = transform.translation;
@@ -86,10 +86,30 @@ pub fn move_units(
         let distance = direction.length();
         let direction = direction.normalize();
 
-        let speed = 0.1;
+        if distance > move_speed.0 {
+            transform.translation += direction * move_speed.0;
+        } else {
+            transform.translation = target_position;
+        }
+    }
+}
 
-        if distance > speed {
-            transform.translation += direction * speed;
+pub fn interpolate_unit_movement(
+    mut units: Query<(&mut Transform, &MoveTarget, &UnitMoveSpeed), With<Unit>>,
+    time: Res<Time>,
+) {
+    for (mut transform, move_target, move_speed) in units.iter_mut() {
+        let mut target_position: Vec3 = move_target.0;
+        target_position.y += 0.5;
+        let current_position: Vec3 = transform.translation;
+        let where_we_are_next_tick = current_position + (target_position - current_position) * time.delta_seconds();
+
+        let direction = target_position - current_position;
+        let distance = direction.length();
+        let direction = direction.normalize();
+
+        if distance > move_speed.0 {
+            transform.translation = where_we_are_next_tick;
         } else {
             transform.translation = target_position;
         }
@@ -339,23 +359,6 @@ pub fn move_camera(
     }
 }
 
-pub fn interpolate_movement_of_other_players(
-    mut players: Query<(Entity, &mut Player, &mut Transform), Without<MainCamera>>,
-    time: Res<Time>,
-) {
-    let _camera_settings = CameraSettings::default();
-
-    for (_, mut player, mut entity_transform) in players.iter_mut() {
-        let player: &mut Player = &mut player;
-        let entity_transform: &mut Transform = &mut entity_transform;
-        if let Some(player_movement) = player.movement {
-            if player_movement.velocity.length() != 0.0 {
-                entity_transform.translation += player_movement.velocity * time.delta_seconds();
-            }
-        }
-    }
-}
-
 pub fn fixed_time_step_client(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -368,6 +371,7 @@ pub fn fixed_time_step_client(
     most_recent_server_tick: Res<LocalServerTick>,
     synced_commands: Res<SyncedPlayerCommandsList>,
     mut event_set_target: EventWriter<PlayerSetTargetEvent>,
+    tickrate: Res<CurrentTickrate>,
 ) {
     let client_id = client.client_id();
 
@@ -450,6 +454,10 @@ pub fn fixed_time_step_client(
                                 ..Default::default()
                             })
                             .insert(Unit)
+                            .insert(RangedUnit {
+                                shooting_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
+                            })
+                            .insert(UnitMoveSpeed(0.1 * (tickrate.0 as f32 * 0.1)))
                             .id();
 
                         let collider = bevy_commands
@@ -462,6 +470,7 @@ pub fn fixed_time_step_client(
                                 },
                                 ..default()
                             })
+                            .insert(Name::new("Unit Mesh"))
                             .with_children(|parent| {
                                 parent
                                     .spawn(Collider::cuboid(0.5, 0.5, 0.5))
@@ -471,7 +480,6 @@ pub fn fixed_time_step_client(
                                     })
                                     .insert(Name::new("Unit Collider"));
                             })
-                            .insert(Name::new("Unit Mesh"))
                             .id();
 
                         if is_player {

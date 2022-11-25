@@ -17,8 +17,8 @@ use bevy_renet::{RenetClientPlugin, RenetServerPlugin, run_if_client_connected};
 use iyes_loopless::prelude::*;
 use renet::{RenetClient, RenetError};
 
-use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PlayerSetTargetEvent, PORT, SAVE_REPLAY, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
-use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_movement_of_other_players, move_camera, move_units, new_renet_client, place_move_target, set_target_for_units, update_tick};
+use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, AmountPlayers, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, CurrentTickrate, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PlayerSetTargetEvent, PORT, SAVE_REPLAY, SaveReplay, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
+use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_unit_movement, move_camera, move_units, new_renet_client, place_move_target, set_target_for_units, update_tick};
 use lockstep_multiplayer_experimenting::commands::{CommandQueue, MyDateTime, ServerSyncedPlayerCommandsList, SyncedPlayerCommandsList};
 use lockstep_multiplayer_experimenting::entities::Target;
 use lockstep_multiplayer_experimenting::physic_stuff::PlaceableSurface;
@@ -37,9 +37,6 @@ fn resolve_type(my_type: &str) -> ClientType {
 fn translate_amount_players(amount_players: &str) -> usize {
     amount_players.parse::<usize>().unwrap_or(AMOUNT_PLAYERS)
 }
-
-#[derive(Resource)]
-struct SaveReplay(bool);
 
 fn main() {
     // env::set_var("RUST_BACKTRACE", "full");
@@ -152,6 +149,7 @@ fn main() {
     app.insert_resource(SyncedPlayerCommandsList::default());
     app.insert_resource(CommandQueue::default());
     app.insert_resource(SaveReplay(save_replay));
+    app.insert_resource(CurrentTickrate(tickrate));
     app.add_event::<PlayerSetTargetEvent>();
 
     // app.add_loading_state(
@@ -221,12 +219,24 @@ fn main() {
                     .after(MySystems::Syncing)
                     .after(MySystems::Updating)
             )
-            .with_run_criteria(run_if_tick_in_sync_client)
+            .with_run_criteria(run_if_new_tick_to_process_client)
     );
     app.add_stage_before(
         CoreStage::Update,
         "FixedUpdateClient",
         FixedTimestepStage::from_stage(Duration::from_millis(tickrate), "FixedClientUpdate", fixed_update_client),
+    );
+
+    app.add_system_set(
+        SystemSet::on_update(GameState::InGame)
+            .with_system(
+                interpolate_unit_movement
+                    .label(MySystems::Interpolating)
+                    .after(MySystems::Syncing)
+                    .after(MySystems::Updating)
+                    .after(MySystems::UpdatingTick)
+            )
+            .with_run_criteria(run_if_ticks_in_sync_client)
     );
 
     app.add_system(move_camera
@@ -241,9 +251,6 @@ fn main() {
                 client_update_system
                     .label(MySystems::Syncing)
                     .after(MySystems::CommandCollection)
-            )
-            .with_system(
-                interpolate_movement_of_other_players
             )
             .with_system(
                 create_new_units
@@ -281,15 +288,19 @@ fn loading_informer() {
 
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 enum MySystems {
+    // collect commands on client side, for them to later send to server
     CommandCollection,
+    // Syncing with server
     Syncing,
+    // player movement things
     Movement,
+    // tick has been processed, send all collected commands to server and update the tick
     UpdatingTick,
+    // Processing the tick
     Updating,
+    // interpolating things between ticks
+    Interpolating,
 }
-
-#[derive(Resource)]
-struct AmountPlayers(usize);
 
 fn setup_camera(
     mut commands: Commands,
@@ -381,7 +392,7 @@ fn run_server_time_step_if_in_sync(
     ShouldRun::Yes
 }
 
-fn run_if_tick_in_sync_client(
+fn run_if_new_tick_to_process_client(
     server_tick: Res<LocalServerTick>,
     client_tick: ResMut<Tick>,
 ) -> ShouldRun {
@@ -390,6 +401,17 @@ fn run_if_tick_in_sync_client(
         ShouldRun::Yes
     } else {
         // println!("Waiting for Server! Current Client Tick: {}, Target Client Tick: {}, Server Tick: {}", client_tick.get(), future_client_tick, server_tick.get());
+        ShouldRun::No
+    }
+}
+
+fn run_if_ticks_in_sync_client(
+    server_tick: Res<LocalServerTick>,
+    client_tick: ResMut<Tick>,
+) -> ShouldRun {
+    if client_tick.get() == server_tick.get() {
+        ShouldRun::Yes
+    } else {
         ShouldRun::No
     }
 }
