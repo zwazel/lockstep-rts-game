@@ -126,17 +126,14 @@ pub fn interpolate_unit_movement(
                 }
 
                 // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
-                let frames_to_interpolate = tickrate.0 as f32 / 1000.0 / average_time_between_frames;
+                let estimated_frames_to_interpolate_total = tickrate.0 as f32 / 1000.0 / average_time_between_frames;
+                let estimated_frames_left_to_interpolate = estimated_frames_to_interpolate_total - all_frames.len() as f32;
 
                 // calculate how much of the distance i have to travel from current position to next tick position in total
                 let distance_to_travel = Vec3::distance(next_tick_position, current_position);
 
                 // calculate how much of the distance i have to travel this frame
-                let distance_to_travel_this_frame = distance_to_travel / frames_to_interpolate;
-
-                // the closer we are at the frames to interpolate, the more we need to move
-                let difference = ((frames_to_interpolate - all_frames.len() as f32) * distance_to_travel_this_frame / frames_to_interpolate).abs() + (speed * distance_to_travel_this_frame);
-                let distance_to_travel_this_frame = distance_to_travel_this_frame + (difference);
+                let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
 
                 // travel that distance
                 transform.translation += direction * distance_to_travel_this_frame;
@@ -147,6 +144,8 @@ pub fn interpolate_unit_movement(
                 }
 
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
+            } else {
+                println!("current position is the same as next tick position");
             }
         }
     }
