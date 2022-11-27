@@ -19,6 +19,20 @@ pub struct UnitMoveSpeed {
     pub speed: f32,
     pub last_synchronised_transform: Transform,
     pub last_ticks_with_time: Vec<f32>,
+    pub last_100_estimated_frames_difference: Vec<i32>,
+    pub last_estimated_amount_of_frames: i32,
+}
+
+impl Default for UnitMoveSpeed {
+    fn default() -> Self {
+        Self {
+            speed: 0.1,
+            last_synchronised_transform: Transform::default(),
+            last_ticks_with_time: Vec::new(),
+            last_100_estimated_frames_difference: Vec::new(),
+            last_estimated_amount_of_frames: 0,
+        }
+    }
 }
 
 impl UnitMoveSpeed {

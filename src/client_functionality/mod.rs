@@ -83,6 +83,10 @@ pub fn move_units(
         target_position.y += 0.5;
         let current_position: Vec3 = transform.translation;
 
+        if target_position == current_position {
+            continue;
+        }
+
         let direction = (target_position - current_position).normalize();
         let distance = Vec3::distance(target_position, current_position);
 
@@ -94,7 +98,19 @@ pub fn move_units(
             move_speed.last_synchronised_transform.translation = target_position;
         }
 
+        let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
+        let amount_frames = all_frames.len() as i32;
+        println!("\nSynced position again, after {} amount of frames, estimated amount of frames was {}", amount_frames, move_speed.last_estimated_amount_of_frames);
+
+        let difference = amount_frames - move_speed.last_estimated_amount_of_frames; // if - then we overestimated, if + then we underestimated
+        move_speed.last_100_estimated_frames_difference.push(difference);
+        if move_speed.last_100_estimated_frames_difference.len() > 100 {
+            move_speed.last_100_estimated_frames_difference.remove(0);
+        }
+        println!("Difference between estimated and actual amount of frames: {}\n", move_speed.last_100_estimated_frames_difference.last().unwrap());
+
         move_speed.last_ticks_with_time.clear();
+        move_speed.last_estimated_amount_of_frames = 0;
         transform.translation = move_speed.last_synchronised_transform.translation;
     }
 }
@@ -117,35 +133,51 @@ pub fn interpolate_unit_movement(
 
             let next_tick_position = last_sync_position + direction * speed;
 
-            if current_position != next_tick_position {
-                let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
-                // get the average time between the ticks
-                let mut average_time_between_frames = all_frames.iter().sum::<f32>() / all_frames.len() as f32;
-                if all_frames.len() <= 0 {
-                    average_time_between_frames = time.delta_seconds();
-                }
+            let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
+            // get the average time between the ticks
+            let mut average_time_between_frames = all_frames.iter().sum::<f32>() / all_frames.len() as f32;
+            if all_frames.len() <= 0 {
+                average_time_between_frames = time.delta_seconds();
+            }
 
-                // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
-                let estimated_frames_to_interpolate_total = tickrate.0 as f32 / 1000.0 / average_time_between_frames;
-                let estimated_frames_left_to_interpolate = estimated_frames_to_interpolate_total - all_frames.len() as f32;
+            // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
+            // round down to nearest integer
+            let difference_total = move_speed.last_100_estimated_frames_difference.iter().sum::<i32>();
+            println!("Difference total: {}, difference length: {}", difference_total, move_speed.last_100_estimated_frames_difference.len());
+            let average_difference_between_estimated_and_actual_frames = if move_speed.last_100_estimated_frames_difference.len() > 0 {
+                difference_total / move_speed.last_100_estimated_frames_difference.len() as i32
+            } else {
+                0
+            };
+            println!("Average difference between estimated and actual amount of frames: {}", average_difference_between_estimated_and_actual_frames);
+            let estimated_frames_to_interpolate_total = ((tickrate.0 as f32 / 1000.0 / average_time_between_frames as f32).floor()).clamp(1.0, f32::MAX);
+            let estimated_frames_to_interpolate_total_with_difference = (estimated_frames_to_interpolate_total + average_difference_between_estimated_and_actual_frames as f32).clamp(1.0, f32::MAX);
 
-                // calculate how much of the distance i have to travel from current position to next tick position in total
-                let distance_to_travel = Vec3::distance(next_tick_position, current_position);
+            let estimated_frames_left_to_interpolate = (estimated_frames_to_interpolate_total_with_difference - move_speed.last_ticks_with_time.len() as f32).clamp(0.0, estimated_frames_to_interpolate_total);
 
-                // calculate how much of the distance i have to travel this frame
-                let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
+            let distance_to_travel = Vec3::distance(next_tick_position, current_position);
+
+            // calculate how much of the distance i have to travel this frame
+            let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
+
+
+            if current_position != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
+                println!("Current frame count: {}", all_frames.len());
+                println!("\tdistance to travel total: {}, total frames to interpolate: {}, frames to interpolate with difference: {}", distance_to_travel, estimated_frames_to_interpolate_total, estimated_frames_to_interpolate_total_with_difference);
+                println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
 
                 // travel that distance
                 transform.translation += direction * distance_to_travel_this_frame;
 
-                // if we are close enough to the next tick position, set the current position to the next tick position
-                if Vec3::distance(transform.translation, next_tick_position) < speed * time.delta_seconds() {
+                if distance_to_travel == distance_to_travel_this_frame {
                     transform.translation = next_tick_position;
                 }
 
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
+                move_speed.last_estimated_amount_of_frames = estimated_frames_to_interpolate_total_with_difference as i32;
             } else {
-                println!("current position is the same as next tick position");
+                println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
+                move_speed.last_ticks_with_time.push(time.delta_seconds());
             }
         }
     }
@@ -494,7 +526,7 @@ pub fn fixed_time_step_client(
                             .insert(UnitMoveSpeed {
                                 speed: 0.1,
                                 last_synchronised_transform: Transform::from_xyz(vec3.x, vec3.y + 0.5, vec3.z),
-                                last_ticks_with_time: Vec::new(),
+                                ..Default::default()
                             })
                             .id();
 
