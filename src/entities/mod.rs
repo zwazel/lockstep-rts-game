@@ -21,6 +21,12 @@ pub struct UnitMoveSpeed {
     pub last_ticks_with_time: Vec<f32>,
     pub last_100_estimated_frames_difference: Vec<i32>,
     pub last_estimated_amount_of_frames: i32,
+    pub overshoot_handler: OvershootMovementHandler<f32, f32>,
+}
+
+pub struct OvershootMovementHandler<T, Z> {
+    pub current_overshoot_amount: T,
+    pub max_total_overshoot: Z,
 }
 
 impl Default for UnitMoveSpeed {
@@ -31,6 +37,10 @@ impl Default for UnitMoveSpeed {
             last_ticks_with_time: Vec::new(),
             last_100_estimated_frames_difference: Vec::new(),
             last_estimated_amount_of_frames: 0,
+            overshoot_handler: OvershootMovementHandler {
+                current_overshoot_amount: 0.0,
+                max_total_overshoot: 10.0,
+            },
         }
     }
 }

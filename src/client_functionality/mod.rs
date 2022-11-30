@@ -111,6 +111,10 @@ pub fn move_units(
 
         move_speed.last_ticks_with_time.clear();
         move_speed.last_estimated_amount_of_frames = 0;
+
+        println!("OVERSHOOT AMOUNT: {:?}", move_speed.overshoot_handler.current_overshoot_amount);
+        move_speed.overshoot_handler.current_overshoot_amount = 0.0;
+
         transform.translation = move_speed.last_synchronised_transform.translation;
     }
 }
@@ -160,6 +164,7 @@ pub fn interpolate_unit_movement(
             // calculate how much of the distance i have to travel this frame
             let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
 
+            let direction_to_next_tick = (next_tick_position - current_position).normalize();
 
             if current_position != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
                 println!("Current frame count: {}", all_frames.len());
@@ -167,7 +172,7 @@ pub fn interpolate_unit_movement(
                 println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
 
                 // travel that distance
-                transform.translation += direction * distance_to_travel_this_frame;
+                transform.translation += direction_to_next_tick * distance_to_travel_this_frame;
 
                 if distance_to_travel == distance_to_travel_this_frame {
                     transform.translation = next_tick_position;
@@ -177,6 +182,12 @@ pub fn interpolate_unit_movement(
                 move_speed.last_estimated_amount_of_frames = estimated_frames_to_interpolate_total_with_difference as i32;
             } else {
                 println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
+                transform.translation += direction * time.delta_seconds();
+                let overshoot_amount = Vec3::distance(current_position, next_tick_position);
+                println!("overshooting {}", overshoot_amount);
+
+                move_speed.overshoot_handler.current_overshoot_amount += overshoot_amount;
+
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
             }
         }
