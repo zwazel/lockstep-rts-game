@@ -30,7 +30,7 @@ pub fn new_renet_client(username: &String, host: &str, port: i32) -> RenetClient
     // Place username in user data
     let mut user_data = [0u8; NETCODE_USER_DATA_BYTES];
     if username.len() > NETCODE_USER_DATA_BYTES - 8 {
-        panic!("Username is too big!");
+        panic!("Username is too big");
     }
     user_data[0..8].copy_from_slice(&(username.len() as u64).to_le_bytes());
     user_data[8..username.len() + 8].copy_from_slice(username.as_bytes());
