@@ -115,7 +115,9 @@ pub fn move_units(
         println!("OVERSHOOT AMOUNT: {:?}", move_speed.overshoot_handler.current_overshoot_amount);
         move_speed.overshoot_handler.current_overshoot_amount = 0.0;
 
-        transform.translation = move_speed.last_synchronised_transform.translation;
+        if move_speed.overshoot_handler.current_overshoot_amount >= move_speed.overshoot_handler.max_total_overshoot {
+            transform.translation = move_speed.last_synchronised_transform.translation;
+        }
     }
 }
 
@@ -127,9 +129,8 @@ pub fn interpolate_unit_movement(
     for (mut transform, move_target, mut move_speed) in units.iter_mut() {
         let mut target_position: Vec3 = move_target.0;
         target_position.y += 0.5;
-        let current_position: Vec3 = transform.translation;
 
-        if current_position != target_position {
+        if transform.translation != target_position {
             let mut last_sync_position: Vec3 = move_speed.last_synchronised_transform.translation;
             let direction = (target_position - last_sync_position).normalize();
 
@@ -159,14 +160,14 @@ pub fn interpolate_unit_movement(
 
             let estimated_frames_left_to_interpolate = (estimated_frames_to_interpolate_total_with_difference - move_speed.last_ticks_with_time.len() as f32).clamp(0.0, estimated_frames_to_interpolate_total);
 
-            let distance_to_travel = Vec3::distance(next_tick_position, current_position);
+            let distance_to_travel = Vec3::distance(next_tick_position, transform.translation);
 
             // calculate how much of the distance i have to travel this frame
             let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
 
-            let direction_to_next_tick = (next_tick_position - current_position).normalize();
+            let direction_to_next_tick = (next_tick_position - transform.translation).normalize();
 
-            if current_position != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
+            if transform.translation != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
                 println!("Current frame count: {}", all_frames.len());
                 println!("\tdistance to travel total: {}, total frames to interpolate: {}, frames to interpolate with difference: {}", distance_to_travel, estimated_frames_to_interpolate_total, estimated_frames_to_interpolate_total_with_difference);
                 println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
@@ -182,11 +183,13 @@ pub fn interpolate_unit_movement(
                 move_speed.last_estimated_amount_of_frames = estimated_frames_to_interpolate_total_with_difference as i32;
             } else {
                 println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
-                transform.translation += direction * time.delta_seconds();
-                let overshoot_amount = Vec3::distance(current_position, next_tick_position);
-                println!("overshooting {}", overshoot_amount);
+                if move_speed.overshoot_handler.current_overshoot_amount < move_speed.overshoot_handler.max_total_overshoot {
+                    transform.translation += direction * time.delta_seconds();
+                    let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
+                    println!("overshooting {}", overshoot_amount);
 
-                move_speed.overshoot_handler.current_overshoot_amount += overshoot_amount;
+                    move_speed.overshoot_handler.current_overshoot_amount += overshoot_amount;
+                }
 
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
             }

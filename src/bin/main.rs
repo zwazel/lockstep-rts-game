@@ -161,7 +161,7 @@ fn main() {
     app.add_state(GameState::InGame);
     app.add_startup_system(setup_camera);
     app.add_startup_system(setup_scene);
-    // app.add_startup_system(setup_mesh);
+    app.add_startup_system(setup_mesh);
 
     match my_type {
         ClientType::Server => {
