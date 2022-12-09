@@ -81,43 +81,47 @@ pub fn move_units(
     for (mut transform, move_target, mut move_speed) in units.iter_mut() {
         let mut target_position: Vec3 = move_target.0;
         target_position.y += 0.5;
-        let current_position: Vec3 = transform.translation;
 
-        if target_position == current_position {
+        if target_position == transform.translation {
             continue;
         }
 
-        let direction = (target_position - current_position).normalize();
-        let distance = Vec3::distance(target_position, current_position);
+        let direction = (target_position - transform.translation).normalize();
+        let distance = Vec3::distance(target_position, transform.translation);
 
         let speed = move_speed.get_tickrate_speed(tickrate.0);
 
         if distance > speed {
             move_speed.last_synchronised_transform.translation += direction * speed;
+
+            if move_speed.overshoot_handler.current_overshoot_amount >= move_speed.overshoot_handler.max_total_overshoot {
+                println!("\n\tOVERSHOT TOO MUCH");
+                transform.translation = move_speed.last_synchronised_transform.translation;
+            } else {
+                println!("\tContinuing from {} instead of {}", transform.translation, move_speed.last_synchronised_transform.translation);
+            }
         } else {
             move_speed.last_synchronised_transform.translation = target_position;
+            transform.translation = move_speed.last_synchronised_transform.translation;
         }
+
 
         let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
         let amount_frames = all_frames.len() as i32;
-        println!("\nSynced position again, after {} amount of frames, estimated amount of frames was {}", amount_frames, move_speed.last_estimated_amount_of_frames);
+        // println!("\nSynced position again, after {} amount of frames, estimated amount of frames was {}", amount_frames, move_speed.last_estimated_amount_of_frames);
 
         let difference = amount_frames - move_speed.last_estimated_amount_of_frames; // if - then we overestimated, if + then we underestimated
         move_speed.last_100_estimated_frames_difference.push(difference);
         if move_speed.last_100_estimated_frames_difference.len() > 100 {
             move_speed.last_100_estimated_frames_difference.remove(0);
         }
-        println!("Difference between estimated and actual amount of frames: {}\n", move_speed.last_100_estimated_frames_difference.last().unwrap());
+        // println!("Difference between estimated and actual amount of frames: {}\n", move_speed.last_100_estimated_frames_difference.last().unwrap());
 
         move_speed.last_ticks_with_time.clear();
         move_speed.last_estimated_amount_of_frames = 0;
 
-        println!("OVERSHOOT AMOUNT: {:?}", move_speed.overshoot_handler.current_overshoot_amount);
+        println!("\tOVERSHOOT AMOUNT: {:?}\n", move_speed.overshoot_handler.current_overshoot_amount);
         move_speed.overshoot_handler.current_overshoot_amount = 0.0;
-
-        if move_speed.overshoot_handler.current_overshoot_amount >= move_speed.overshoot_handler.max_total_overshoot {
-            transform.translation = move_speed.last_synchronised_transform.translation;
-        }
     }
 }
 
@@ -148,13 +152,12 @@ pub fn interpolate_unit_movement(
             // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
             // round down to nearest integer
             let difference_total = move_speed.last_100_estimated_frames_difference.iter().sum::<i32>();
-            println!("Difference total: {}, difference length: {}", difference_total, move_speed.last_100_estimated_frames_difference.len());
             let average_difference_between_estimated_and_actual_frames = if move_speed.last_100_estimated_frames_difference.len() > 0 {
                 difference_total / move_speed.last_100_estimated_frames_difference.len() as i32
             } else {
                 0
             };
-            println!("Average difference between estimated and actual amount of frames: {}", average_difference_between_estimated_and_actual_frames);
+            // println!("Average difference between estimated and actual amount of frames: {}", average_difference_between_estimated_and_actual_frames);
             let estimated_frames_to_interpolate_total = ((tickrate.0 as f32 / 1000.0 / average_time_between_frames as f32).floor()).clamp(1.0, f32::MAX);
             let estimated_frames_to_interpolate_total_with_difference = (estimated_frames_to_interpolate_total + average_difference_between_estimated_and_actual_frames as f32).clamp(1.0, f32::MAX);
 
@@ -168,9 +171,9 @@ pub fn interpolate_unit_movement(
             let direction_to_next_tick = (next_tick_position - transform.translation).normalize();
 
             if transform.translation != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
-                println!("Current frame count: {}", all_frames.len());
-                println!("\tdistance to travel total: {}, total frames to interpolate: {}, frames to interpolate with difference: {}", distance_to_travel, estimated_frames_to_interpolate_total, estimated_frames_to_interpolate_total_with_difference);
-                println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
+                // println!("Current frame count: {}", all_frames.len());
+                // println!("\tdistance to travel total: {}, total frames to interpolate: {}, frames to interpolate with difference: {}", distance_to_travel, estimated_frames_to_interpolate_total, estimated_frames_to_interpolate_total_with_difference);
+                // println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
 
                 // travel that distance
                 transform.translation += direction_to_next_tick * distance_to_travel_this_frame;
@@ -182,13 +185,23 @@ pub fn interpolate_unit_movement(
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
                 move_speed.last_estimated_amount_of_frames = estimated_frames_to_interpolate_total_with_difference as i32;
             } else {
-                println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
+                // println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
                 if move_speed.overshoot_handler.current_overshoot_amount < move_speed.overshoot_handler.max_total_overshoot {
-                    transform.translation += direction * time.delta_seconds();
+                    let current_direction = (transform.translation - target_position).normalize();
+                    transform.translation += current_direction * speed * time.delta_seconds();
                     let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
                     println!("overshooting {}", overshoot_amount);
 
                     move_speed.overshoot_handler.current_overshoot_amount += overshoot_amount;
+                } else {
+                    // slowly go back to the next tick position
+                    let current_direction = (transform.translation - next_tick_position).normalize();
+                    transform.translation += current_direction * speed * time.delta_seconds();
+
+                    let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
+                    println!("undershooting {}", overshoot_amount);
+
+                    move_speed.overshoot_handler.current_overshoot_amount -= overshoot_amount;
                 }
 
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
