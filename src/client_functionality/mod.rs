@@ -17,7 +17,7 @@ use renet::{ClientAuthentication, NETCODE_USER_DATA_BYTES, RenetClient};
 use crate::*;
 use crate::ClientMessages::ClientUpdateTick;
 use crate::commands::{CommandQueue, SyncedPlayerCommandsList};
-use crate::entities::{MoveTarget, OtherPlayerControlled, PlayerControlled, RangedUnit, Target, Unit, UnitMoveSpeed};
+use crate::entities::{InterpolationFrameManager, MoveTarget, OtherPlayerControlled, PlayerControlled, RangedUnit, Target, Unit, UnitMoveSpeed};
 use crate::ServerMessages::UpdateTick;
 
 pub fn new_renet_client(username: &String, host: &str, port: i32) -> RenetClient {
@@ -86,8 +86,8 @@ pub fn move_units(
             continue;
         }
 
-        let direction = (target_position - transform.translation).normalize();
-        let distance = Vec3::distance(target_position, transform.translation);
+        let direction = (target_position - move_speed.last_synchronised_transform.translation).normalize();
+        let distance = Vec3::distance(target_position, move_speed.last_synchronised_transform.translation);
 
         let speed = move_speed.get_tickrate_speed(tickrate.0);
 
@@ -142,12 +142,7 @@ pub fn interpolate_unit_movement(
 
             let next_tick_position = last_sync_position + direction * speed;
 
-            let all_frames: &Vec<f32> = &move_speed.last_ticks_with_time;
-            // get the average time between the ticks
-            let mut average_time_between_frames = all_frames.iter().sum::<f32>() / all_frames.len() as f32;
-            if all_frames.len() <= 0 {
-                average_time_between_frames = time.delta_seconds();
-            }
+
 
             // calculate how many frames i have time to interpolate for this tick (based on tickrate). if tickrate is 50, every 50 ms is a new tick, so i have 50 ms to interpolate for. that means per second i have 20 ticks, so i have 20 ms to interpolate for per tick.
             // round down to nearest integer
@@ -188,7 +183,7 @@ pub fn interpolate_unit_movement(
                 // println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
                 if move_speed.overshoot_handler.current_overshoot_amount < move_speed.overshoot_handler.max_total_overshoot {
                     let current_direction = (transform.translation - target_position).normalize();
-                    transform.translation += current_direction * speed * time.delta_seconds();
+                    transform.translation += current_direction * (speed * speed * time.delta_seconds()) ;
                     let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
                     println!("overshooting {}", overshoot_amount);
 
@@ -196,7 +191,7 @@ pub fn interpolate_unit_movement(
                 } else {
                     // slowly go back to the next tick position
                     let current_direction = (transform.translation - next_tick_position).normalize();
-                    transform.translation += current_direction * speed * time.delta_seconds();
+                    transform.translation += current_direction * (speed * speed * time.delta_seconds());
 
                     let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
                     println!("undershooting {}", overshoot_amount);
@@ -207,6 +202,15 @@ pub fn interpolate_unit_movement(
                 move_speed.last_ticks_with_time.push(time.delta_seconds());
             }
         }
+    }
+}
+
+pub fn interpolation_frame_manager_calculations(mut frame_manager: ResMut<InterpolationFrameManager>) {
+    let all_frames: &Vec<f32> = &frame_manager.last_ticks_with_time;
+    // get the average time between the ticks
+    let mut average_time_between_frames = all_frames.iter().sum::<f32>() / all_frames.len() as f32;
+    if all_frames.len() <= 0 {
+        average_time_between_frames = time.delta_seconds();
     }
 }
 

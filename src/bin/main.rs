@@ -20,7 +20,7 @@ use renet::{RenetClient, RenetError};
 use lockstep_multiplayer_experimenting::{AMOUNT_PLAYERS, AmountPlayers, CameraLight, CameraMovement, CameraSettings, ClientLobby, ClientTicks, ClientType, CurrentServerTick, CurrentTickrate, GameState, LocalServerTick, MainCamera, NetworkMapping, Player, PlayerId, PlayerSetTargetEvent, PORT, SAVE_REPLAY, SaveReplay, ServerLobby, ServerMarker, Tick, TICKRATE, translate_host, translate_port, VERSION};
 use lockstep_multiplayer_experimenting::client_functionality::{client_update_system, create_new_units, fixed_time_step_client, interpolate_unit_movement, move_camera, move_units, new_renet_client, place_move_target, set_target_for_units, update_tick};
 use lockstep_multiplayer_experimenting::commands::{CommandQueue, MyDateTime, ServerSyncedPlayerCommandsList, SyncedPlayerCommandsList};
-use lockstep_multiplayer_experimenting::entities::Target;
+use lockstep_multiplayer_experimenting::entities::{InterpolationFrameManager, Target};
 use lockstep_multiplayer_experimenting::physic_stuff::PlaceableSurface;
 use lockstep_multiplayer_experimenting::server_functionality::{fixed_time_step_server, new_renet_server, server_update_system};
 use lockstep_multiplayer_experimenting::terrain_generation::setup_mesh;
@@ -150,6 +150,7 @@ fn main() {
     app.insert_resource(CommandQueue::default());
     app.insert_resource(SaveReplay(save_replay));
     app.insert_resource(CurrentTickrate(tickrate));
+    app.insert_resource(InterpolationFrameManager::default());
     app.add_event::<PlayerSetTargetEvent>();
 
     // app.add_loading_state(
