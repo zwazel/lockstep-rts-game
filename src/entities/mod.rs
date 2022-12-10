@@ -40,7 +40,7 @@ impl InterpolationFrameManager {
         self.last_estimated_amount_of_frames = 0;
     }
 
-    pub fn add_frame(&mut self, difference: i32) {
+    pub fn add_frame_difference(&mut self, difference: i32) {
         self.last_100_estimated_frames_difference.push(difference);
         if self.last_100_estimated_frames_difference.len() > 100 {
             self.last_100_estimated_frames_difference.remove(0);
@@ -60,7 +60,7 @@ impl InterpolationFrameManager {
     pub fn get_average_difference_between_estimated_and_actual_frames(&self) -> i32 {
         if self.last_100_estimated_frames_difference.len() > 0 {
             let difference_total = self.last_100_estimated_frames_difference.iter().sum::<i32>();
-            difference_total / move_speed.last_100_estimated_frames_difference.len() as i32
+            difference_total / self.last_100_estimated_frames_difference.len() as i32
         } else {
             0
         }
