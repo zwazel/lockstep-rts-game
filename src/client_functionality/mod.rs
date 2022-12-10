@@ -98,25 +98,24 @@ pub fn move_units(
             if move_speed.overshoot_handler.current_overshoot_amount >= move_speed.overshoot_handler.max_total_overshoot {
                 println!("\n\tOVERSHOT TOO MUCH");
                 transform.translation = move_speed.last_synchronised_transform.translation;
-            } else {
-                println!("\tContinuing from {} instead of {}", transform.translation, move_speed.last_synchronised_transform.translation);
             }
         } else {
             move_speed.last_synchronised_transform.translation = target_position;
             transform.translation = move_speed.last_synchronised_transform.translation;
         }
 
-        let amount_frames = interpolation_frame_manager.last_ticks_with_time.len() as i32;
-        // println!("\nSynced position again, after {} amount of frames, estimated amount of frames was {}", amount_frames, move_speed.last_estimated_amount_of_frames);
+        move_speed.overshoot_handler.current_overshoot_amount = 0.0;
+    }
 
-        let difference = amount_frames - interpolation_frame_manager.last_estimated_amount_of_frames; // if - then we overestimated, if + then we underestimated
+    // println!("\nSynced position again, after {} amount of frames, estimated amount of frames was {}", amount_frames, move_speed.last_estimated_amount_of_frames);
+
+    if units.iter_mut().count() > 0 {
+        // if - then we overestimated, if + then we underestimated
+        let difference = interpolation_frame_manager.get_actual_frames_vs_estimated_frames_difference();
         interpolation_frame_manager.add_frame_difference(difference);
         // println!("Difference between estimated and actual amount of frames: {}\n", move_speed.last_100_estimated_frames_difference.last().unwrap());
 
         interpolation_frame_manager.reset();
-
-        println!("\tOVERSHOOT AMOUNT: {:?}\n", move_speed.overshoot_handler.current_overshoot_amount);
-        move_speed.overshoot_handler.current_overshoot_amount = 0.0;
     }
 }
 
@@ -138,54 +137,47 @@ pub fn interpolate_unit_movement(
 
             let next_tick_position = last_sync_position + direction * speed;
 
-            let estimated_frames_to_interpolate_total_with_difference = interpolation_frame_manager.get_estimated_amount_of_frames_to_interpolate_total(tickrate.0, true);
-
-            let estimated_frames_left_to_interpolate = interpolation_frame_manager.get_estimated_frames_left(tickrate.0, true);
+            let estimated_frames_left_to_interpolate = interpolation_frame_manager.get_estimated_frames_left(tickrate.0, true, time.delta_seconds());
 
             let distance_to_travel = Vec3::distance(next_tick_position, transform.translation);
 
             // calculate how much of the distance i have to travel this frame
-            let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate as f32;
+            let distance_to_travel_this_frame = distance_to_travel / estimated_frames_left_to_interpolate;
 
             let direction_to_next_tick = (next_tick_position - transform.translation).normalize();
 
-            if transform.translation != next_tick_position && estimated_frames_left_to_interpolate > 0 {
+            if transform.translation != next_tick_position && estimated_frames_left_to_interpolate > 0.0 {
                 // println!("Current frame count: {}", all_frames.len());
                 // println!("\tdistance to travel total: {}, total frames to interpolate: {}, frames to interpolate with difference: {}", distance_to_travel, estimated_frames_to_interpolate_total, estimated_frames_to_interpolate_total_with_difference);
                 // println!("\tdistance to travel this frame: {}, frames left to interpolate: {}", distance_to_travel_this_frame, estimated_frames_left_to_interpolate);
 
                 // travel that distance
                 transform.translation += direction_to_next_tick * distance_to_travel_this_frame;
-
-                if distance_to_travel == distance_to_travel_this_frame {
-                    transform.translation = next_tick_position;
-                }
-
-                interpolation_frame_manager.last_ticks_with_time.push(time.delta_seconds());
-                interpolation_frame_manager.last_estimated_amount_of_frames = estimated_frames_to_interpolate_total_with_difference as i32;
             } else {
+                let over_shoot_move_amount = (speed * 2.0) * time.delta_seconds();
                 // println!("current position is the same as next tick position, at frame {}, with {} estimated frames to interpolate", all_frames.len(), estimated_frames_to_interpolate_total_with_difference);
                 if move_speed.overshoot_handler.current_overshoot_amount < move_speed.overshoot_handler.max_total_overshoot {
                     let current_direction = (transform.translation - target_position).normalize();
-                    transform.translation += current_direction * (speed * speed * time.delta_seconds()) ;
+                    transform.translation += current_direction * over_shoot_move_amount;
                     let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
-                    println!("overshooting {}", overshoot_amount);
 
                     move_speed.overshoot_handler.current_overshoot_amount += overshoot_amount;
                 } else {
                     // slowly go back to the next tick position
                     let current_direction = (transform.translation - next_tick_position).normalize();
-                    transform.translation += current_direction * (speed * speed * time.delta_seconds());
+                    transform.translation += current_direction * over_shoot_move_amount;
 
                     let overshoot_amount = Vec3::distance(transform.translation, next_tick_position);
-                    println!("undershooting {}", overshoot_amount);
 
                     move_speed.overshoot_handler.current_overshoot_amount -= overshoot_amount;
                 }
-
-                interpolation_frame_manager.last_ticks_with_time.push(time.delta_seconds());
             }
         }
+    }
+
+    if units.iter_mut().count() > 0 {
+        interpolation_frame_manager.last_estimated_amount_of_frames = interpolation_frame_manager.get_estimated_amount_of_frames_to_interpolate_total(tickrate.0, true, time.delta_seconds()) as i32;
+        interpolation_frame_manager.last_ticks_with_time.push(time.delta_seconds());
     }
 }
 
