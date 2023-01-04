@@ -8,10 +8,10 @@
         "type": "tabs",
         "children": [
           {
-            "id": "9d3c5e70b53bca00",
+            "id": "9997330872c54ba6",
             "type": "leaf",
             "state": {
-              "type": "empty",
+              "type": "graph",
               "state": {}
             }
           }
@@ -138,6 +138,10 @@
       "command-palette:Open command palette": false
     }
   },
-  "active": "9d3c5e70b53bca00",
-  "lastOpenFiles": []
+  "active": "134e11f709a4fba7",
+  "lastOpenFiles": [
+    "traits/Lebende Legende.md",
+    "ideas/Traits.md",
+    "^a.md"
+  ]
 }
