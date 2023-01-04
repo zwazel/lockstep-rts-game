@@ -8,17 +8,24 @@
   "collapse-color-groups": false,
   "colorGroups": [
     {
-      "query": "path:ideas",
+      "query": "tag:trait",
       "color": {
         "a": 1,
-        "rgb": 5405920
+        "rgb": 14701138
       }
     },
     {
-      "query": "path:traits",
+      "query": "tag:#feature",
       "color": {
         "a": 1,
-        "rgb": 14725458
+        "rgb": 5422560
+      }
+    },
+    {
+      "query": "tag:#weather",
+      "color": {
+        "a": 1,
+        "rgb": 11657298
       }
     }
   ],
@@ -32,6 +39,6 @@
   "repelStrength": 10,
   "linkStrength": 1,
   "linkDistance": 250,
-  "scale": 1.4019828977761015,
-  "close": false
+  "scale": 0.7132754626224428,
+  "close": true
 }
