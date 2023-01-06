@@ -1,0 +1,1 @@
+[[Fernkampfeinheiten]] sowie [[Artillerie]]einheiten können Friendly fire ausüben.

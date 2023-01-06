@@ -1,0 +1,23 @@
+# Beschreibung
+Jede Art von Einheit sollte mindestens gegen etwas stark sein, und gegen etwas schwach sein.
+# [[Kavallerie]]
+![[Kavallerie#Kurzbeschreibung]]
+![[Kavallerie#Gut gegen]]
+![[Kavallerie#Schlecht gegen]]
+# [[Speereinheiten]]
+![[Speereinheiten#Kurzbeschreibung]]
+![[Speereinheiten#Gut gegen]]
+![[Speereinheiten#Schlecht gegen]]
+# [[Schwerteinheiten]]
+![[Schwerteinheiten#Kurzbeschreibung]]
+![[Schwerteinheiten#Gut gegen]]
+![[Schwerteinheiten#Schlecht gegen]]
+# [[Fernkampfeinheiten]]
+![[Fernkampfeinheiten#Kurzbeschreibung]]
+![[Fernkampfeinheiten#Gut gegen]]
+![[Fernkampfeinheiten#Schlecht gegen]]
+
+# [[Artillerie]]
+![[Artillerie#Kurzbeschreibung]]
+![[Artillerie#Gut gegen]]
+![[Artillerie#Schlecht gegen]]
